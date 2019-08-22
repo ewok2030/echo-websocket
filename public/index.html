@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <title>Echo WebSocket</title>
+  <style>
+    .column {
+      float: left;
+      width: 50%;
+    }
+
+    /* Clear floats after the columns */
+    .row:after {
+      content: "";
+      display: table;
+      clear: both;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>Echo Server</h1>
+  <div class="row">
+    <div class="column">
+      <h2>HTTP</h2>
+      <hr />
+      <pre id="http_log"></pre>
+    </div>
+    <div class="column">
+      <h2>WebSocket</h2>
+      <hr />
+      <div>
+        <input type="text" id="input" disabled value="Hello, Server" />
+        <button id="send" disabled>Send</button>
+      </div>
+      <pre id="ws">Waiting to connect....<br></pre>
+    </div>
+  </div>
+
+  <script>
+    // Reference objects in DOM
+    var http_log = document.getElementById('http_log');
+    var ws_status = document.getElementById('ws_status');
+    var ws_log = document.getElementById('ws');
+    var inp = document.getElementById('input');
+    var send = document.getElementById('send');
+
+    // Send HTTP request to echo server
+    const xmlhttp = new XMLHttpRequest();
+    const url = window.location + "/http"
+    xmlhttp.onreadystatechange = function () {
+      if (xmlhttp.readyState == XMLHttpRequest.DONE) {   // XMLHttpRequest.DONE == 4
+        if (xmlhttp.status == 200) {
+          http_log.innerHTML = xmlhttp.responseText;
+        }
+        else if (xmlhttp.status == 400) {
+          http_log.innerHTML = 'There was an error 400';
+        }
+        else {
+          http_log.innerHTML = 'Some other than 200 was returned';
+        }
+      }
+    };
+    xmlhttp.open("GET", url);
+    xmlhttp.send();
+
+    // Open WebSocket connection to echo server
+    if (!window.WebSocket) {
+      ws_log.innerHTML += 'ERROR: Sorry, but your browser doesn\'t support WebSocket.<br>';
+    } else {
+
+      var loc = window.location;
+      var uri = 'ws:';
+
+      if (loc.protocol === 'https:') {
+        uri = 'wss:';
+      }
+      uri += '//' + loc.host;
+      uri += loc.pathname + 'ws';
+
+      ws = new WebSocket(uri)
+
+      ws.onopen = function () {
+        // Make input box active 
+        ws_log.innerHTML += '>> Connected!<br>';
+        inp.disabled = false;
+        send.disabled = false;
+        
+        // Setup click event
+        send.onclick = function () {
+          ws.send(inp.value);
+          ws_log.innerHTML += 'Sent: ' + inp.value + '<br>';
+          console.log('Sent: ' + inp.value);
+        }
+        console.log('Connected!')
+      }
+
+      ws.onmessage = function (evt) {
+        // Append echo message to page
+        ws_log.innerHTML += 'Received: ' + evt.data + '<br>';
+        console.log('Received: ' + evt.data)
+      }
+
+      ws.onclose = function () {
+        ws_log.innerHTML += '>> Disconnected<br>';
+        inp.disabled = true;
+        send.disabled = true;
+        console.log('WebSocket Closed');
+      }
+    }
+  </script>
+</body>

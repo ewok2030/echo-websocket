@@ -1,0 +1,83 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo-ws-svc
+  labels:
+    app: echo-ws-svc
+spec:
+  ports:
+  - name: http
+    port: 80
+    # target must match the name of the Pod port
+    targetPort: http
+    protocol: TCP
+  selector:
+    app: echo-ws-app
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: echo-ws-app
+  labels:
+    app: echo-ws-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels: &labels
+      app: echo-ws-app
+  template:
+    metadata:
+      name: echo-ws-app
+      labels:
+        <<: *labels # copy the labels defined in anchor
+    spec:
+      containers:
+      - name: echo-ws-app
+        image: ewok2030/echo-websocket:latest
+        ports:
+        - name: http
+          containerPort: 8081
+        env:
+          - name: SHOW_ENV
+            value: "false" # True to allow /http?show_env=1 to print all env vars (may have sensitive info)
+          - name: SHOW_K8S
+            value: "true" # True to allow /http?show_k8s=1 to print env vars with prefix 'K8S'
+          - name: K8S_NODE_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
+          - name: K8S_POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: K8S_POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: K8S_POD_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: echo-ws-ingress
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.org/websocket-services: echo-ws-svc
+    certmanager.k8s.io/cluster-issuer: letsencrypt-prod
+spec:
+  tls:
+  - hosts:
+    - 'echo.example.com'
+    secretName: echo.example.com-crt
+  rules:
+  - host: echo.example.com # Change to your domain
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: echo-ws-svc
+          servicePort: http

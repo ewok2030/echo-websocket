@@ -1,0 +1,4 @@
+# Files to exclude from the docker build context
+README.md
+/docs
+kubernetes.yaml
